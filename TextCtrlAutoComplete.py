@@ -277,9 +277,11 @@ class TextCtrlAutoComplete (wx.TextCtrl, listmix.ColumnSorterMixin ):
         event.Skip ()
 
     def onControlChanged(self, event):
-        self._showDropDown( False )
-        event.Skip()
-
+        try:
+            self._showDropDown( False )
+            event.Skip()
+        except wx._core.PyDeadObjectError:
+            pass
 
     # -- Interfaces methods
     def SetMultipleChoices(self, choices, colSearch=0, colFetch=-1):

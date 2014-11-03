@@ -7,8 +7,7 @@ import constants as const
 
 from TextCtrlAutoComplete import TextCtrlAutoComplete
 
-from databaseAccess import DatabaseManager as dbm
-
+from dataAccess import DataAccess as da
 
 class RadioButtonPanel(wx.Panel):
 
@@ -86,35 +85,6 @@ class BasePanel(wx.Panel):
         self.Parent.Layout()
         self.Destroy()
 
-    def getGenres(self):
-
-        dm = dbm()
-        sql = '''
-        SELECT id, genre
-        FROM genre
-        '''
-        results = dm.execute(sql)
-        genres = {}
-        for result in results:
-            id, genre = result
-            genres[genre] = id
-        return genres
-
-
-    def getFormats(self):
-
-        dm = dbm()
-        sql = '''
-        SELECT id, name
-        FROM format
-        '''
-        results = dm.execute(sql)
-        formats = {}
-        for result in results:
-            id, format = result
-            formats[format] = id
-        return formats
-
     def onAddActor(self, event):
             self.Freeze()
             panel = ActorPanel(self.actorPanel)
@@ -136,6 +106,14 @@ class BasePanel(wx.Panel):
         self.countryPanel.SetupScrolling()
         self.Thaw()
         event.Skip()
+
+    def isnumber(self, number):
+
+        try:
+            float(number)
+            return True
+        except:
+            return False
 
 
 
@@ -173,20 +151,9 @@ class FilmPanel(BasePanel):
 
         self.ignoreEvtText = False
 
-        self.genres = self.getGenres()
-        genreList = self.genres.keys()
-        genreList.sort()
-
-        self.formats = self.getFormats()
-        formatList = self.formats.keys()
-        formatList.sort()
-
         self.relatingPanels = []
 
-        self.directors = self.getDirectors()
-
         infoSizer1 = wx.BoxSizer(wx.HORIZONTAL)
-
 
         titleStaticBox = wx.StaticBox(self, -1, 'Title')
         titleSizer = wx.StaticBoxSizer(titleStaticBox, wx.HORIZONTAL)
@@ -212,6 +179,7 @@ class FilmPanel(BasePanel):
         formatStaticBox = wx.StaticBox(self, -1, 'Format')
         formatSizer = wx.StaticBoxSizer(formatStaticBox, wx.HORIZONTAL)
         self.formatChoice = wx.Choice(self, -1, choices=formatList)
+        self.formatChoice.SetStringSelection('DVD')
         formatSizer.Add(self.formatChoice, 0, wx.ALL, 4)
 
         genreStaticBox = wx.StaticBox(self, -1, 'Genre')
@@ -308,53 +276,34 @@ class FilmPanel(BasePanel):
 
 
 
-    def getfilms(self):
-
-        dm = dbm()
-        sql = '''
-        SELECT title
-        FROM films
-        '''
-        results = dm.execute(sql)
-        films = []
-        if results:
-            for result in results:
-
-                films.append(result[0])
-        return films
-
-    def getDirectors(self):
-
-        dm = dbm()
-        sql = '''
-        SELECT id, first_name, last_name
-        FROM director
-        '''
-        results = dm.execute(sql)
-        directors = {}
-        if results:
-            for result in results:
-                id, firstName, lastName = result
-                directors[(firstName, lastName)] = id
-        return directors
-
-
     def onCreate(self, event):
+
         title = self.titleBox.GetValue()
         if title == "":
             self.createWarningBox("Please type a title for this film!", True)
             return
+
         year = self.yearBox.GetValue()
-        if year == '':
-            if not self.createWarningBox("You didn't enter a year for this film.\n\nCreate it anyway?"):
-                return
+        if not self.isnumber(year) or len(year) < 4:
+            self.createWarningBox("Invalid entry for year!", True)
+            return
+
         isCriterion = int(self.criterionCheckbox.IsChecked())
+
         length = self.lengthBox.GetValue()
         if length == '':
             if not self.createWarningBox("You didn't enter a length for this film.\n\nCreate it anyway?"):
                 return
+            else:
+                length = 'NULL'
+        elif not self.isnumber(length):
+            self.createWarningBox("Invalid entry for length!", True)
+            return
+
         format = self.formats[self.formatChoice.GetStringSelection()]
+
         genre = self.genres[self.genreChoice.GetStringSelection()]
+
         director = (self.directorFNTextCtrl.GetValue(), self.directorLNTextCtrl.GetValue())
         if director == ("", ""):
             if not self.createWarningBox("You didn't enter a director for this film.\n\nCreate it anyway?"):
@@ -400,42 +349,6 @@ class FilmPanel(BasePanel):
             return False
 
 
-    def createDirector(self, nameTupple):
-        dialog = wx.MessageDialog(self, 'Create Director %s %s?' %nameTupple, style=wx.YES_NO)
-        if dialog.ShowModal() == wx.ID_YES:
-            dialog.Destroy()
-            dm = dbm()
-            sql = 'INSERT INTO director\
-            (first_name, last_name)\
-            VALUES\
-            (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-            results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM director\
-                WHERE first_name = %s\
-                AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-                results = dm.execute(sql)
-                return results[0][0]
-        else:
-            dialog.Destroy()
-        return False
-
-
-    def createFilm(self, title, year, genre, length, isCriterion, directorID, format):
-        dm = dbm()
-        sql = 'INSERT INTO films\
-        (title, year, genre, length, criterion_edition, director, format)\
-        VALUES\
-        (%s, %s, %s, %s, %s, %s, %s)\
-        '%("'" + title + "'", year, genre, length, isCriterion, directorID, format)
-        results = dm.execute(sql)
-        dm.commit()
-        if results is not False:
-            sql = 'SELECT id FROM films WHERE title = %s' %("'" + title + "'")
-            results = dm.execute(sql)
-        return results
-
 
 
 
@@ -443,126 +356,108 @@ class FilmPanel(BasePanel):
 class SeriesPanel(BasePanel):
 
     def __init__(self, parent):
-            BasePanel.__init__(self, parent)
+        BasePanel.__init__(self, parent)
 
-            self.genres = self.getGenres()
-            genreList = self.genres.keys()
-            genreList.sort()
+        self.relatingPanels = []
 
-            self.formats = self.getFormats()
-            formatList = self.formats.keys()
-            formatList.sort()
-
-            self.relatingPanels = []
-
-            infoSizer1 = wx.BoxSizer(wx.HORIZONTAL)
+        infoSizer1 = wx.BoxSizer(wx.HORIZONTAL)
 
 
-            nameStaticBox = wx.StaticBox(self, -1, 'name')
-            nameSizer = wx.StaticBoxSizer(nameStaticBox, wx.HORIZONTAL)
-            self.nameBox = wx.TextCtrl(self, -1, size=(200, -1))
-            nameSizer.Add(self.nameBox, 0, wx.ALL, 4)
+        nameStaticBox = wx.StaticBox(self, -1, 'Name')
+        nameSizer = wx.StaticBoxSizer(nameStaticBox, wx.HORIZONTAL)
+        self.nameBox = wx.TextCtrl(self, -1, size=(200, -1))
+        nameSizer.Add(self.nameBox, 0, wx.ALL, 4)
 
-            yearStaticBox = wx.StaticBox(self, -1, 'Year')
-            yearSizer = wx.StaticBoxSizer(yearStaticBox, wx.HORIZONTAL)
-            self.yearBox = wx.TextCtrl(self, -1, size=(47, -1))
-            self.yearBox.SetMaxLength(4)
-            yearSizer.Add(self.yearBox, 0, wx.ALL, 4)
+        yearStaticBox = wx.StaticBox(self, -1, 'Year')
+        yearSizer = wx.StaticBoxSizer(yearStaticBox, wx.HORIZONTAL)
+        self.yearBox = wx.TextCtrl(self, -1, size=(47, -1))
+        self.yearBox.SetMaxLength(4)
+        yearSizer.Add(self.yearBox, 0, wx.ALL, 4)
 
-            infoSizer2 = wx.BoxSizer(wx.HORIZONTAL)
+        infoSizer2 = wx.BoxSizer(wx.HORIZONTAL)
 
-            formatStaticBox = wx.StaticBox(self, -1, 'Format')
-            formatSizer = wx.StaticBoxSizer(formatStaticBox, wx.HORIZONTAL)
-            self.formatChoice = wx.Choice(self, -1, choices=formatList)
-            formatSizer.Add(self.formatChoice, 0, wx.ALL, 4)
+        formatStaticBox = wx.StaticBox(self, -1, 'Format')
+        formatSizer = wx.StaticBoxSizer(formatStaticBox, wx.HORIZONTAL)
+        self.formatChoice = wx.Choice(self, -1, choices=formatList)
+        self.formatChoice.SetStringSelection('DVD')
+        formatSizer.Add(self.formatChoice, 0, wx.ALL, 4)
 
-            genreStaticBox = wx.StaticBox(self, -1, 'Genre')
-            genreSizer = wx.StaticBoxSizer(genreStaticBox, wx.HORIZONTAL)
-            self.genreChoice = wx.Choice(self, -1, choices=genreList)
-            genreSizer.Add(self.genreChoice, 0, wx.ALL, 4)
+        genreStaticBox = wx.StaticBox(self, -1, 'Genre')
+        genreSizer = wx.StaticBoxSizer(genreStaticBox, wx.HORIZONTAL)
+        self.genreChoice = wx.Choice(self, -1, choices=genreList)
+        genreSizer.Add(self.genreChoice, 0, wx.ALL, 4)
 
-            self.countryPanel = scrolled.ScrolledPanel(self, -1, size=(-1, 175))
-            self.countryPanel.SetBackgroundColour(const.BACKGROUNDCOLOUR)
-            countryPanelStaticBox = wx.StaticBox(self, -1, "Countries")
-            self.countryPanelStaticBoxSizer = wx.StaticBoxSizer(countryPanelStaticBox, wx.VERTICAL)
-            self.countryPanelSizer = wx.BoxSizer(wx.VERTICAL)
-            addCountryButton = wx.Button(self, -1, 'Add Country')
+        self.countryPanel = scrolled.ScrolledPanel(self, -1, size=(-1, 175))
+        self.countryPanel.SetBackgroundColour(const.BACKGROUNDCOLOUR)
+        countryPanelStaticBox = wx.StaticBox(self, -1, "Countries")
+        self.countryPanelStaticBoxSizer = wx.StaticBoxSizer(countryPanelStaticBox, wx.VERTICAL)
+        self.countryPanelSizer = wx.BoxSizer(wx.VERTICAL)
+        addCountryButton = wx.Button(self, -1, 'Add Country')
 
-            self.countryPanelStaticBoxSizer.Add(addCountryButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
-            self.countryPanelStaticBoxSizer.Add(self.countryPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
-            panel = CountryPanel(self.countryPanel)
-            self.relatingPanels.append(panel)
-            self.countryPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
+        self.countryPanelStaticBoxSizer.Add(addCountryButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
+        self.countryPanelStaticBoxSizer.Add(self.countryPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
+        panel = CountryPanel(self.countryPanel)
+        self.relatingPanels.append(panel)
+        self.countryPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
 
-            self.countryPanel.SetSizer(self.countryPanelSizer)
-            self.countryPanel.SetAutoLayout(1)
-            self.countryPanel.SetupScrolling()
+        self.countryPanel.SetSizer(self.countryPanelSizer)
+        self.countryPanel.SetAutoLayout(1)
+        self.countryPanel.SetupScrolling()
 
-            self.actorPanel = scrolled.ScrolledPanel(self, -1, size=(-1, 175))
-            self.actorPanel.SetBackgroundColour(const.BACKGROUNDCOLOUR)
-            actorPanelStaticBox = wx.StaticBox(self, -1, "Actors")
-            self.actorPanelStaticBoxSizer = wx.StaticBoxSizer(actorPanelStaticBox, wx.VERTICAL)
-            self.actorPanelSizer = wx.BoxSizer(wx.VERTICAL)
-            addactorButton = wx.Button(self, -1, 'Add actor')
+        self.actorPanel = scrolled.ScrolledPanel(self, -1, size=(-1, 175))
+        self.actorPanel.SetBackgroundColour(const.BACKGROUNDCOLOUR)
+        actorPanelStaticBox = wx.StaticBox(self, -1, "Actors")
+        self.actorPanelStaticBoxSizer = wx.StaticBoxSizer(actorPanelStaticBox, wx.VERTICAL)
+        self.actorPanelSizer = wx.BoxSizer(wx.VERTICAL)
+        addactorButton = wx.Button(self, -1, 'Add actor')
 
-            self.actorPanelStaticBoxSizer.Add(addactorButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
-            self.actorPanelStaticBoxSizer.Add(self.actorPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
-            panel = ActorPanel(self.actorPanel)
-            self.relatingPanels.append(panel)
-            self.actorPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
+        self.actorPanelStaticBoxSizer.Add(addactorButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
+        self.actorPanelStaticBoxSizer.Add(self.actorPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
+        panel = ActorPanel(self.actorPanel)
+        self.relatingPanels.append(panel)
+        self.actorPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
 
-            self.actorPanel.SetSizer(self.actorPanelSizer)
-            self.actorPanel.SetAutoLayout(1)
-            self.actorPanel.SetupScrolling()
+        self.actorPanel.SetSizer(self.actorPanelSizer)
+        self.actorPanel.SetAutoLayout(1)
+        self.actorPanel.SetupScrolling()
 
-            buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
-            createButton = wx.Button(self, -1, 'Add series')
-            cancelButton = wx.Button(self, -1, 'Cancel')
-            buttonSizer.Add(createButton, 0, wx.ALIGN_CENTER|wx.ALIGN_BOTTOM|wx.ALL, 4)
-            buttonSizer.Add(cancelButton, 0, wx.ALIGN_CENTER|wx.ALL, 4)
+        buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        createButton = wx.Button(self, -1, 'Add series')
+        cancelButton = wx.Button(self, -1, 'Cancel')
+        buttonSizer.Add(createButton, 0, wx.ALIGN_CENTER|wx.ALIGN_BOTTOM|wx.ALL, 4)
+        buttonSizer.Add(cancelButton, 0, wx.ALIGN_CENTER|wx.ALL, 4)
 
-            infoSizer1.Add(nameSizer, 2, wx.ALL, 4)
-            infoSizer1.Add(yearSizer, 1, wx.ALL, 4)
+        infoSizer1.Add(nameSizer, 2, wx.ALL, 4)
+        infoSizer1.Add(yearSizer, 1, wx.ALL, 4)
 
-            infoSizer2.Add(formatSizer, 1 , wx.ALL, 4)
-            infoSizer2.Add(genreSizer, 1 , wx.ALL, 4)
+        infoSizer2.Add(formatSizer, 1 , wx.ALL, 4)
+        infoSizer2.Add(genreSizer, 1 , wx.ALL, 4)
 
-            self.Bind(wx.EVT_BUTTON, self.onCreate, createButton)
-            self.Bind(wx.EVT_BUTTON, self.onCancel, cancelButton)
-            self.Bind(wx.EVT_BUTTON, self.onAddCountry, addCountryButton)
-            self.Bind(wx.EVT_BUTTON, self.onAddActor, addactorButton)
+        self.Bind(wx.EVT_BUTTON, self.onCreate, createButton)
+        self.Bind(wx.EVT_BUTTON, self.onCancel, cancelButton)
+        self.Bind(wx.EVT_BUTTON, self.onAddCountry, addCountryButton)
+        self.Bind(wx.EVT_BUTTON, self.onAddActor, addactorButton)
 
-            self.mainSizer.Add(infoSizer1, 0, wx.ALL|wx.EXPAND, 4)
-            self.mainSizer.Add(infoSizer2, 0, wx.ALL|wx.EXPAND, 4)
-            self.mainSizer.Add(self.countryPanelStaticBoxSizer, 0, wx.ALL|wx.EXPAND, 4)
-            self.mainSizer.Add(self.actorPanelStaticBoxSizer, 0, wx.ALL|wx.EXPAND, 4)
-            self.mainSizer.Add(buttonSizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
-
-    def getseries(self):
-        dm = dbm()
-        sql = '''
-        SELECT name
-        FROM series
-        '''
-        results = dm.execute(sql)
-        series = []
-        if results:
-            for result in results:
-
-                series.append(result[0])
-        return series
-
+        self.mainSizer.Add(infoSizer1, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(infoSizer2, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(self.countryPanelStaticBoxSizer, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(self.actorPanelStaticBoxSizer, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(buttonSizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
 
     def onCreate(self, event):
+
         name = self.nameBox.GetValue()
         if name == "":
             self.createWarningBox("Please type a name for this series!", True)
             return
+
         year = self.yearBox.GetValue()
-        if year == '':
-            if not self.createWarningBox("You didn't enter a year for this series.\n\nCreate it anyway?"):
-                return
+        if not self.isnumber(year) or len(year) < 4:
+            self.createWarningBox("Invalid entry for year!", True)
+            return
+
         format = self.formats[self.formatChoice.GetStringSelection()]
+
         genre = self.genres[self.genreChoice.GetStringSelection()]
 
         dialogString = "Create series:%s\nGenre:%s\nFormat:%s\nYear:%s" %(name,
@@ -586,25 +481,10 @@ class SeriesPanel(BasePanel):
         event.Skip()
 
 
-    def createseries(self, name, year, genre, format):
-            dm = dbm()
-            sql = 'INSERT INTO series\
-            (name, year, genre, format)\
-            VALUES\
-            (%s, %s, %s, %s)\
-            '%("'" + name + "'", year, genre, format)
-            results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM series WHERE name = %s' %("'" + name + "'")
-                results = dm.execute(sql)
-            return results
 
 class ActorPanel(BasePanel):
     def __init__(self, parent):
         BasePanel.__init__(self, parent, size=(-1, 100))
-
-        self.actors = self.getActors()
 
         actorStaticBoxSizer = wx.BoxSizer(wx.HORIZONTAL)
         actorFNStaticBox = wx.StaticBox(self, -1, "First Name")
@@ -631,22 +511,6 @@ class ActorPanel(BasePanel):
                 self.actorLNTextCtrl.SetValue(key[1])
         self.actorLNTextCtrl.SetChoices([key[1] for key in self.actors.keys() if text == key[0]])
         event.Skip()
-
-    def getActors(self):
-        dm = dbm()
-        sql = '''
-        SELECT id, first_name, last_name
-        FROM actor
-        '''
-        results = dm.execute(sql)
-        actors = {}
-        if results:
-            for result in results:
-                id, first_name, last_name = result
-                actors[(first_name, last_name)] = id
-        return actors
-
-
 
     def onCreate(self, filmId, isFilm=True):
         actor = (self.actorFNTextCtrl.GetValue(), self.actorLNTextCtrl.GetValue())
@@ -685,33 +549,11 @@ class ActorPanel(BasePanel):
         else:
             return False
 
-    def createActor(self, nameTupple):
-        dialog = wx.MessageDialog(self, 'Create actor %s %s?' %nameTupple, style=wx.YES_NO)
-        if dialog.ShowModal() == wx.ID_YES:
-            dialog.Destroy()
-            dm = dbm()
-            sql = 'INSERT INTO actor\
-            (first_name, last_name)\
-            VALUES\
-            (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-            results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM actor\
-                WHERE first_name = %s\
-                AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-                results = dm.execute(sql)
-                return results[0][0]
-        else:
-            dialog.Destroy()
-        return False
-
 
 class CountryPanel(BasePanel):
     def __init__(self, parent):
         BasePanel.__init__(self, parent, size=(-1, 100))
 
-        self.countries = self.getCountries()
 
         self.countryStaticBox = wx.StaticBox(self, -1, 'Country')
         self.countryStaticBoxSizer = wx.StaticBoxSizer(self.countryStaticBox, wx.VERTICAL)
@@ -720,45 +562,11 @@ class CountryPanel(BasePanel):
 
         self.mainSizer.Add(self.countryStaticBoxSizer, 1, wx.EXPAND)
 
-    def getCountries(self):
-        dm = dbm()
-        sql = '''
-        SELECT id, name
-        FROM country
-        '''
-        results = dm.execute(sql)
-        countries = {}
-        for result in results:
-            id, name = result
-            countries[name] = id
-        return countries
-
-
     def checkCountry(self, country):
         if country not in self.countries:
             return False
         return True
 
-    def createCountry(self, country):
-        dialog = wx.MessageDialog(self, 'Create Country %s?' %country, style=wx.YES_NO)
-        if dialog.ShowModal() == wx.ID_YES:
-            dialog.Destroy()
-            dm = dbm()
-            sql = 'INSERT INTO country\
-            (name)\
-            VALUES\
-            (%s)'%("'" + country + "'")
-            results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM country\
-                WHERE name = %s\
-                '%("'" + country + "'")
-                results = dm.execute(sql)
-                return results[0][0]
-        else:
-            dialog.Destroy()
-        return False
 
     def onCreate(self, filmId, isFilm=True):
         country = self.countryText.GetValue()
@@ -816,8 +624,3 @@ class ArtistPanel(BasePanel):
         #create artist
         pass
 
-    def getArtists(self):
-        return str(self.artistBox.GetValue())
-
-    def createArtist(self):
-        pass

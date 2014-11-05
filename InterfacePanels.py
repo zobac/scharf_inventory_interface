@@ -41,11 +41,11 @@ class RadioButtonPanel(wx.Panel):
                 selection = button.GetName()
                 break
         if selection == const.FILM:
-            panel = FilmPanel(self.Parent)
+            panel = FilmPanel(self.Parent, self.Parent.dataAccess)
         elif selection == const.SERIES:
-            panel = SeriesPanel(self.Parent)
+            panel = SeriesPanel(self.Parent, self.Parent.dataAccess)
         else:
-            panel = MusicDVDPanel(self.Parent)
+            panel = MusicDVDPanel(self.Parent, self.Parent.dataAccess)
 
         self.Parent.mainSizer.Detach(self)
         self.Parent.mainSizer.Add(panel, 1, wx.EXPAND)
@@ -56,10 +56,10 @@ class RadioButtonPanel(wx.Panel):
 
 class BasePanel(wx.Panel):
 
-    def __init__(self, parent, size=wx.DefaultSize):
+    def __init__(self, parent, dataAccess, size=wx.DefaultSize):
         wx.Panel.__init__(self, parent, -1, size=(-1,-1))
         self.SetBackgroundColour(const.BACKGROUNDCOLOUR)
-
+        self.dataAccess = dataAccess
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)
 
 
@@ -80,10 +80,12 @@ class BasePanel(wx.Panel):
         self.returnToMainPanel()
 
     def returnToMainPanel(self):
+        self.dataAccess.loadAttrs()
         self.Parent.mainSizer.Detach(self)
         self.Parent.mainSizer.Add(RadioButtonPanel(self.Parent), 0, wx.ALIGN_CENTER)
         self.Parent.Layout()
         self.Destroy()
+
 
     def onAddActor(self, event):
             self.Freeze()
@@ -120,34 +122,121 @@ class BasePanel(wx.Panel):
 
 class MusicDVDPanel(BasePanel):
 
-    def __init__(self, parent):
-        BasePanel.__int__(self, parent)
+    def __init__(self, parent, dataAccess):
+        BasePanel.__init__(self, parent, dataAccess)
+
+        self.relatingPanels = []
+
+        infoSizer1 = wx.BoxSizer(wx.HORIZONTAL)
+
+
+        nameStaticBox = wx.StaticBox(self, -1, 'Name')
+        nameSizer = wx.StaticBoxSizer(nameStaticBox, wx.HORIZONTAL)
+        self.nameBox = wx.TextCtrl(self, -1, size=(200, -1))
+        nameSizer.Add(self.nameBox, 0, wx.ALL, 4)
+
+        yearStaticBox = wx.StaticBox(self, -1, 'Year')
+        yearSizer = wx.StaticBoxSizer(yearStaticBox, wx.HORIZONTAL)
+        self.yearBox = wx.TextCtrl(self, -1, size=(47, -1))
+        self.yearBox.SetMaxLength(4)
+        yearSizer.Add(self.yearBox, 0, wx.ALL, 4)
+
+        infoSizer2 = wx.BoxSizer(wx.HORIZONTAL)
+
+        formatStaticBox = wx.StaticBox(self, -1, 'Format')
+        formatSizer = wx.StaticBoxSizer(formatStaticBox, wx.HORIZONTAL)
+        self.formatChoice = wx.Choice(self, -1, choices=self.dataAccess.formats.keys())
+        self.formatChoice.SetStringSelection('DVD')
+        formatSizer.Add(self.formatChoice, 0, wx.ALL, 4)
+
+        self.artistPanel = scrolled.ScrolledPanel(self, -1, size=(-1, 350))
+        self.artistPanel.SetBackgroundColour(const.BACKGROUNDCOLOUR)
+        artistPanelStaticBox = wx.StaticBox(self, -1, "artists")
+        self.artistPanelStaticBoxSizer = wx.StaticBoxSizer(artistPanelStaticBox, wx.VERTICAL)
+        self.artistPanelSizer = wx.BoxSizer(wx.VERTICAL)
+        addartistButton = wx.Button(self, -1, 'Add artist')
+
+        self.artistPanelStaticBoxSizer.Add(addartistButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
+        self.artistPanelStaticBoxSizer.Add(self.artistPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
+        panel = ArtistPanel(self.artistPanel, self.dataAccess)
+        self.relatingPanels.append(panel)
+        self.artistPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
+
+        self.artistPanel.SetSizer(self.artistPanelSizer)
+        self.artistPanel.SetAutoLayout(1)
+        self.artistPanel.SetupScrolling()
+
+        buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
+        createButton = wx.Button(self, -1, 'Add musicDVD')
+        cancelButton = wx.Button(self, -1, 'Cancel')
+        buttonSizer.Add(createButton, 0, wx.ALIGN_CENTER|wx.ALIGN_BOTTOM|wx.ALL, 4)
+        buttonSizer.Add(cancelButton, 0, wx.ALIGN_CENTER|wx.ALL, 4)
+
+        infoSizer1.Add(nameSizer, 2, wx.ALL, 4)
+        infoSizer1.Add(yearSizer, 1, wx.ALL, 4)
+
+        infoSizer2.Add(formatSizer, 1 , wx.ALL, 4)
+
+        self.Bind(wx.EVT_BUTTON, self.onCreate, createButton)
+        self.Bind(wx.EVT_BUTTON, self.onCancel, cancelButton)
+        self.Bind(wx.EVT_BUTTON, self.onAddartist, addartistButton)
+
+        self.mainSizer.Add(infoSizer1, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(infoSizer2, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(self.artistPanelStaticBoxSizer, 0, wx.ALL|wx.EXPAND, 4)
+        self.mainSizer.Add(buttonSizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
 
     def onCreate(self, event):
-            event.Skip()
+
+        title = self.nameBox.GetValue()
+        if title == "":
+            self.createWarningBox("Please type a title for this musicDVD!", True)
+            return
+
+        year = self.yearBox.GetValue()
+        if not self.isnumber(year) or len(year) < 4:
+            self.createWarningBox("Invalid entry for year!", True)
+            return
+
+        format = self.dataAccess.formats[self.formatChoice.GetStringSelection()]
+
+        dialogString = "Create musicDVD:%s\nGenre:%s\nYear:%s" %(title,
+                                                                 self.formatChoice.GetStringSelection(),
+                                                                 year)
+        if title in self.dataAccess.getMusicDVDs():
+            dialogString += '\nTHIS title IS ALREADY PRESENT IN THE DATABASE'
+
+        dialog = wx.MessageDialog(self, dialogString, style=wx.YES_NO)
+        if dialog.ShowModal() == wx.ID_YES:
+            dialog.Destroy()
+            musicDVDId = self.dataAccess.createMusicDVD(title, year, format)[-1][-1]
+            if not musicDVDId:
+                self.createWarningBox('Failed to create this musicDVD.', True)
+
+            for panel in self.relatingPanels:
+                panel.onCreate(musicDVDId, True)
+        else:
+            dialog.Destroy()
+        event.Skip()
 
 
-    def checkArtist(self):
-            pass
-
-
-    def createArtist(self):
-        pass
-
-
-    def createArtistDVD(self):
-        pass
-
-
-    def onAddArtist(self, event):
+    def onAddartist(self, event):
+        self.Freeze()
+        panel = ArtistPanel(self.artistPanel, self.dataAccess)
+        self.relatingPanels.append(panel)
+        self.artistPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
+        self.artistPanel.SetSizer(self.artistPanelSizer)
+        self.artistPanel.SetAutoLayout(1)
+        self.artistPanel.SetupScrolling()
+        self.Thaw()
         event.Skip()
 
 
 
 class FilmPanel(BasePanel):
 
-    def __init__(self, parent):
-        BasePanel.__init__(self, parent)
+    def __init__(self, parent, dataAccess):
+        BasePanel.__init__(self, parent, dataAccess)
 
         self.ignoreEvtText = False
 
@@ -178,13 +267,13 @@ class FilmPanel(BasePanel):
 
         formatStaticBox = wx.StaticBox(self, -1, 'Format')
         formatSizer = wx.StaticBoxSizer(formatStaticBox, wx.HORIZONTAL)
-        self.formatChoice = wx.Choice(self, -1, choices=formatList)
+        self.formatChoice = wx.Choice(self, -1, choices=self.dataAccess.formats.keys())
         self.formatChoice.SetStringSelection('DVD')
         formatSizer.Add(self.formatChoice, 0, wx.ALL, 4)
 
         genreStaticBox = wx.StaticBox(self, -1, 'Genre')
         genreSizer = wx.StaticBoxSizer(genreStaticBox, wx.HORIZONTAL)
-        self.genreChoice = wx.Choice(self, -1, choices=genreList)
+        self.genreChoice = wx.Choice(self, -1, choices=self.dataAccess.genres.keys())
         genreSizer.Add(self.genreChoice, 0, wx.ALL, 4)
 
         directorStaticBox = wx.StaticBox(self, -1, 'Director')
@@ -192,12 +281,12 @@ class FilmPanel(BasePanel):
 
         directorFNStaticBox = wx.StaticBox(self, -1, "First Name")
         directorFNStaticBoxSizer = wx.StaticBoxSizer(directorFNStaticBox, wx.HORIZONTAL)
-        self.directorFNTextCtrl = TextCtrlAutoComplete(self, -1, choices=[key[0] for key in self.directors.keys()],size=(200, -1))
+        self.directorFNTextCtrl = TextCtrlAutoComplete(self, -1, choices=[key[0] for key in self.dataAccess.directors],size=(200, -1))
         directorFNStaticBoxSizer.Add(self.directorFNTextCtrl, 0, wx.ALL, 4)
 
         directorLNStaticBox = wx.StaticBox(self, -1, "Last Name")
         directorLNStaticBoxSizer = wx.StaticBoxSizer(directorLNStaticBox, wx.HORIZONTAL)
-        self.directorLNTextCtrl = TextCtrlAutoComplete(self, -1,  choices=[key[1] for key in self.directors.keys()], size=(200, -1))
+        self.directorLNTextCtrl = TextCtrlAutoComplete(self, -1,  choices=[key[1] for key in self.dataAccess.directors], size=(200, -1))
         directorLNStaticBoxSizer.Add(self.directorLNTextCtrl, 0, wx.ALL, 4)
 
         directorStaticBoxSizer.Add(directorFNStaticBoxSizer, 1, wx.ALL, 4)
@@ -212,7 +301,7 @@ class FilmPanel(BasePanel):
 
         self.countryPanelStaticBoxSizer.Add(addCountryButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
         self.countryPanelStaticBoxSizer.Add(self.countryPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
-        panel = CountryPanel(self.countryPanel)
+        panel = CountryPanel(self.countryPanel, self.dataAccess)
         self.relatingPanels.append(panel)
         self.countryPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
 
@@ -229,7 +318,7 @@ class FilmPanel(BasePanel):
 
         self.actorPanelStaticBoxSizer.Add(addactorButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
         self.actorPanelStaticBoxSizer.Add(self.actorPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
-        panel = ActorPanel(self.actorPanel)
+        panel = ActorPanel(self.actorPanel, self.dataAccess)
         self.relatingPanels.append(panel)
         self.actorPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
 
@@ -265,15 +354,14 @@ class FilmPanel(BasePanel):
         self.mainSizer.Add(self.actorPanelStaticBoxSizer, 0, wx.ALL|wx.EXPAND, 4)
         self.mainSizer.Add(buttonSizer, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
 
+
     def onDirectorFNKillFocus(self, event):
         text = event.GetEventObject().GetValue()
-        for key in self.directors.keys():
+        for key in self.dataAccess.directors:
             if text == key[0]:
                 self.directorLNTextCtrl.SetValue(key[1])
-        self.directorLNTextCtrl.SetChoices([key[1] for key in self.directors.keys() if text == key[0]])
+        self.directorLNTextCtrl.SetChoices([key[1] for key in self.dataAccess.directors if text == key[0]])
         event.Skip()
-
-
 
 
     def onCreate(self, event):
@@ -300,9 +388,9 @@ class FilmPanel(BasePanel):
             self.createWarningBox("Invalid entry for length!", True)
             return
 
-        format = self.formats[self.formatChoice.GetStringSelection()]
+        format = self.dataAccess.formats[self.formatChoice.GetStringSelection()]
 
-        genre = self.genres[self.genreChoice.GetStringSelection()]
+        genre = self.dataAccess.genres[self.genreChoice.GetStringSelection()]
 
         director = (self.directorFNTextCtrl.GetValue(), self.directorLNTextCtrl.GetValue())
         if director == ("", ""):
@@ -311,10 +399,15 @@ class FilmPanel(BasePanel):
         elif director[0] == '':
             if not self.createWarningBox("You didn't enter a last name for the director of this film.\n\nCreate it anyway?"):
                 return
-
-        if not self.checkDirector(director):
-            directorID = self.createDirector(director)
-            if directorID is False:
+        if not self.dataAccess.checkDirector(director):
+            dialog = wx.MessageDialog(self, 'Create Director %s %s?' %director, style=wx.YES_NO)
+            if dialog.ShowModal() == wx.ID_YES:
+                dialog.Destroy()
+                directorID = self.dataAccess.createDirector(director)
+                if directorID is False:
+                    return
+            else:
+                dialog.Destroy()
                 return
         else:
             directorID = self.directors[director]
@@ -325,13 +418,13 @@ class FilmPanel(BasePanel):
                                                                                                              self.formatChoice.GetStringSelection(),
                                                                                                              year,
                                                                                                              self.criterionCheckbox.IsChecked())
-        if title in self.getfilms():
+        if title in self.dataAccess.films:
             dialogString += '\nTHIS TITLE IS ALREADY PRESENT IN THE DATABASE'
 
         dialog = wx.MessageDialog(self, dialogString, style=wx.YES_NO)
         if dialog.ShowModal() == wx.ID_YES:
             dialog.Destroy()
-            filmId = self.createFilm(title, year, genre, length, isCriterion, directorID, format)[-1][-1]
+            filmId = self.dataAccess.createFilm(title, year, genre, length, isCriterion, directorID, format)[-1][-1]
             if not filmId:
                 return
 
@@ -342,21 +435,10 @@ class FilmPanel(BasePanel):
         event.Skip()
 
 
-    def checkDirector(self, nameTupple):
-        if nameTupple in self.directors:
-            return True
-        else:
-            return False
-
-
-
-
-
-
 class SeriesPanel(BasePanel):
 
-    def __init__(self, parent):
-        BasePanel.__init__(self, parent)
+    def __init__(self, parent, dataAccess):
+        BasePanel.__init__(self, parent, dataAccess)
 
         self.relatingPanels = []
 
@@ -378,13 +460,13 @@ class SeriesPanel(BasePanel):
 
         formatStaticBox = wx.StaticBox(self, -1, 'Format')
         formatSizer = wx.StaticBoxSizer(formatStaticBox, wx.HORIZONTAL)
-        self.formatChoice = wx.Choice(self, -1, choices=formatList)
+        self.formatChoice = wx.Choice(self, -1, choices=self.dataAccess.formats.keys())
         self.formatChoice.SetStringSelection('DVD')
         formatSizer.Add(self.formatChoice, 0, wx.ALL, 4)
 
         genreStaticBox = wx.StaticBox(self, -1, 'Genre')
         genreSizer = wx.StaticBoxSizer(genreStaticBox, wx.HORIZONTAL)
-        self.genreChoice = wx.Choice(self, -1, choices=genreList)
+        self.genreChoice = wx.Choice(self, -1, choices=self.dataAccess.genres.keys())
         genreSizer.Add(self.genreChoice, 0, wx.ALL, 4)
 
         self.countryPanel = scrolled.ScrolledPanel(self, -1, size=(-1, 175))
@@ -396,7 +478,7 @@ class SeriesPanel(BasePanel):
 
         self.countryPanelStaticBoxSizer.Add(addCountryButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
         self.countryPanelStaticBoxSizer.Add(self.countryPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
-        panel = CountryPanel(self.countryPanel)
+        panel = CountryPanel(self.countryPanel, self.dataAccess)
         self.relatingPanels.append(panel)
         self.countryPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
 
@@ -413,7 +495,7 @@ class SeriesPanel(BasePanel):
 
         self.actorPanelStaticBoxSizer.Add(addactorButton, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
         self.actorPanelStaticBoxSizer.Add(self.actorPanel, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL|wx.EXPAND, 4)
-        panel = ActorPanel(self.actorPanel)
+        panel = ActorPanel(self.actorPanel, self.dataAccess)
         self.relatingPanels.append(panel)
         self.actorPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
 
@@ -456,21 +538,21 @@ class SeriesPanel(BasePanel):
             self.createWarningBox("Invalid entry for year!", True)
             return
 
-        format = self.formats[self.formatChoice.GetStringSelection()]
+        format = self.dataAccess.formats[self.formatChoice.GetStringSelection()]
 
-        genre = self.genres[self.genreChoice.GetStringSelection()]
+        genre = self.dataAccess.genres[self.genreChoice.GetStringSelection()]
 
         dialogString = "Create series:%s\nGenre:%s\nFormat:%s\nYear:%s" %(name,
                                                                           self.genreChoice.GetStringSelection(),
                                                                           self.formatChoice.GetStringSelection(),
                                                                           year)
-        if name in self.getseries():
+        if name in self.dataAccess.getseries():
             dialogString += '\nTHIS name IS ALREADY PRESENT IN THE DATABASE'
 
         dialog = wx.MessageDialog(self, dialogString, style=wx.YES_NO)
         if dialog.ShowModal() == wx.ID_YES:
             dialog.Destroy()
-            seriesId = self.createseries(name, year, genre, format)[-1][-1]
+            seriesId = self.dataAccess.createseries(name, year, genre, format)[-1][-1]
             if not seriesId:
                 self.createWarningBox('Failed to create this series.', True)
 
@@ -483,18 +565,18 @@ class SeriesPanel(BasePanel):
 
 
 class ActorPanel(BasePanel):
-    def __init__(self, parent):
-        BasePanel.__init__(self, parent, size=(-1, 100))
+    def __init__(self, parent, dataAccess):
+        BasePanel.__init__(self, parent, dataAccess, size=(-1, 100))
 
         actorStaticBoxSizer = wx.BoxSizer(wx.HORIZONTAL)
         actorFNStaticBox = wx.StaticBox(self, -1, "First Name")
         actorFNStaticBoxSizer = wx.StaticBoxSizer(actorFNStaticBox, wx.HORIZONTAL)
-        self.actorFNTextCtrl = TextCtrlAutoComplete(self, -1, choices=[key[0] for key in self.actors.keys()],size=(200, -1))
+        self.actorFNTextCtrl = TextCtrlAutoComplete(self, -1, choices=[key[0] for key in self.dataAccess.actors],size=(200, -1))
         actorFNStaticBoxSizer.Add(self.actorFNTextCtrl, 0, wx.ALL, 4)
 
         actorLNStaticBox = wx.StaticBox(self, -1, "Last Name")
         actorLNStaticBoxSizer = wx.StaticBoxSizer(actorLNStaticBox, wx.HORIZONTAL)
-        self.actorLNTextCtrl = TextCtrlAutoComplete(self, -1,  choices=[key[1] for key in self.actors.keys()], size=(200, -1))
+        self.actorLNTextCtrl = TextCtrlAutoComplete(self, -1,  choices=[key[1] for key in self.dataAccess.actors], size=(200, -1))
         actorLNStaticBoxSizer.Add(self.actorLNTextCtrl, 0, wx.ALL, 4)
 
         actorStaticBoxSizer.Add(actorFNStaticBoxSizer, 1, wx.ALL, 4)
@@ -506,121 +588,92 @@ class ActorPanel(BasePanel):
 
     def onActorFNKillFocus(self, event):
         text = event.GetEventObject().GetValue()
-        for key in self.actors.keys():
+        for key in self.dataAccess.actors:
             if text == key[0]:
                 self.actorLNTextCtrl.SetValue(key[1])
-        self.actorLNTextCtrl.SetChoices([key[1] for key in self.actors.keys() if text == key[0]])
+        self.actorLNTextCtrl.SetChoices([key[1] for key in self.dataAccess.actors if text == key[0]])
         event.Skip()
 
     def onCreate(self, filmId, isFilm=True):
         actor = (self.actorFNTextCtrl.GetValue(), self.actorLNTextCtrl.GetValue())
         if actor[1] == '':
             return
-        if not self.checkActor(actor):
-            actorId = self.createActor(actor)
-            if not actorId:
+        if not self.dataAccess.checkActor(actor):
+            dialog = wx.MessageDialog(self, 'Create Actor %s %s?' %actor, style=wx.YES_NO)
+            if dialog.ShowModal() == wx.ID_YES:
+                dialog.Destroy()
+                actorId = self.dataAccess.createActor(actor)
+                if not actorId:
+                    return
+            else:
+                dialog.Destroy()
                 return
         else:
-            actorId = self.actors[actor]
-        self.relate(filmId, actorId, isFilm)
-
-
-    def relate(self, filmId, actorId, isFilm):
-        dm = dbm()
-        if isFilm:
-            sql = 'INSERT INTO film_actor\
-            (film, actor)\
-            VALUES\
-            (%s, %s)'%(filmId, actorId)
-        else:
-            sql = 'INSERT INTO series_actor\
-            (series, actor)\
-            VALUES\
-            (%s, %s)'%(filmId, actorId)
-
-        results = dm.execute(sql)
-        dm.commit()
-
-
-
-    def checkActor(self, nameTupple):
-        if nameTupple in self.actors:
-            return True
-        else:
-            return False
+            actorId = self.dataAccess.actors[actor]
+        self.dataAccess.relateActor(filmId, actorId, isFilm)
 
 
 class CountryPanel(BasePanel):
-    def __init__(self, parent):
-        BasePanel.__init__(self, parent, size=(-1, 100))
+    def __init__(self, parent, dataAccess):
+        BasePanel.__init__(self, parent, dataAccess, size=(-1, 100))
 
 
         self.countryStaticBox = wx.StaticBox(self, -1, 'Country')
         self.countryStaticBoxSizer = wx.StaticBoxSizer(self.countryStaticBox, wx.VERTICAL)
-        self.countryText = TextCtrlAutoComplete(self, -1, choices=[key for key in self.countries.keys()],size=(200, -1))
+        self.countryText = TextCtrlAutoComplete(self, -1, choices=[key for key in self.dataAccess.countries],size=(200, -1))
         self.countryStaticBoxSizer.Add(self.countryText, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
 
         self.mainSizer.Add(self.countryStaticBoxSizer, 1, wx.EXPAND)
-
-    def checkCountry(self, country):
-        if country not in self.countries:
-            return False
-        return True
 
 
     def onCreate(self, filmId, isFilm=True):
         country = self.countryText.GetValue()
         if country == '':
             return
-        if not self.checkCountry(country):
-            countryId = self.createCountry(country)
-            if not countryId:
+        if not self.dataAccess.checkCountry(country):
+            dialog = wx.MessageDialog(self, 'Create Country %s?' %country, style=wx.YES_NO)
+            if dialog.ShowModal() == wx.ID_YES:
+                dialog.Destroy()
+                countryId = self.dataAccess.createCountry(country)
+                if not countryId:
+                    return
+            else:
+                dialog = wx.MessageDialog(self, 'Create Country %s?' %country, style=wx.YES_NO)
                 return
         else:
-            countryId = self.countries[country]
-        self.relate(filmId, countryId, isFilm)
-
-    def relate(self, filmId, countryId, isFilm):
-        dm = dbm()
-        if isFilm:
-            sql = 'INSERT INTO film_country\
-            (film, country)\
-            VALUES\
-            (%s, %s)'%(filmId, countryId)
-        else:
-            sql = 'INSERT INTO series_country\
-            (series, country)\
-            VALUES\
-            (%s, %s)'%(filmId, countryId)
-        results = dm.execute(sql)
-        dm.commit()
+            countryId = self.dataAccess.countries[country]
+        self.dataAccess.relateCountry(filmId, countryId, isFilm)
 
 
 
 
 class ArtistPanel(BasePanel):
-    def __init__(self, parent):
-        self.artistDict = {}
-        BasePanel.__init__(self, parent)
 
-        sizer = wx.BoxSizer(wx.VERTICAL)
+    def __init__(self, parent, dataAccess):
+        BasePanel.__init__(self, parent, dataAccess, size=(-1, 100))
 
-        inputSizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.artistStaticBox = wx.StaticBox(self, -1, 'artist')
+        self.artistStaticBoxSizer = wx.StaticBoxSizer(self.artistStaticBox, wx.VERTICAL)
+        self.artistText = TextCtrlAutoComplete(self, -1, choices=[key for key in self.dataAccess.artists],size=(200, -1))
+        self.artistStaticBoxSizer.Add(self.artistText, 0, wx.ALIGN_CENTER_HORIZONTAL|wx.ALL, 4)
 
-        label = wx.StaticText(self, -1, "Artist Name")
-        self.box = wx.TextCtrl(self, -1, size=(75, -1))
-        inputSizer.Add(label, 0, wx.ALL, 4)
-        inputSizer.Add(self.box, 0, wx.ALL, 4)
-
-        sizer.Add(inputSizer, 0, wx.ALL|wx.ALIGN_CENTER_HORIZONTAL, 4)
-
-        # Event Bindings
-        self.Bind(wx.EVT_TEXT, self.onArtistText, self.artistBox)
-
-        self.SetSizer()
+        self.mainSizer.Add(self.artistStaticBoxSizer, 1, wx.EXPAND)
 
 
-    def onCreate(self):
-        #create artist
-        pass
-
+    def onCreate(self, diskId, isDVD=True):
+        artist = self.artistText.GetValue()
+        if artist == '':
+            return
+        if not self.dataAccess.checkArtist(artist):
+            dialog = wx.MessageDialog(self, 'Create artist %s?' %artist, style=wx.YES_NO)
+            if dialog.ShowModal() == wx.ID_YES:
+                dialog.Destroy()
+                artistId = self.dataAccess.createArtist(artist)
+                if not artistId:
+                    return
+            else:
+                dialog.Destroy()
+                return
+        else:
+            artistId = self.dataAccess.artists[artist]
+        self.dataAccess.relateArtistMusic(artistId, diskId, isDVD)

@@ -5,6 +5,10 @@ from databaseAccess import DatabaseManager as dbm
 class DataAccess(object):
 
     def __init__(self):
+        self.loadAttrs()
+
+
+    def loadAttrs(self):
         self.genres = self.getGenres()
 
         self.formats = self.getFormats()
@@ -41,13 +45,13 @@ class DataAccess(object):
         return musicDVDs
 
 
-    def createMusicDVDs(self, title, year, artist):
+    def createMusicDVD(self, title, year, format):
         dm = dbm()
         sql = 'INSERT INTO music_dvd\
-        (title, year, artist)\
+        (title, year, format)\
         VALUES\
         (%s, %s, %s)\
-        '%("'" + title + "'", year, artist)
+        '%("'" + title + "'", year, format)
         results = dm.execute(sql)
         dm.commit()
         if results is not False:
@@ -133,24 +137,20 @@ class DataAccess(object):
 
 
     def createDirector(self, nameTupple):
-        dialog = wx.MessageDialog(self, 'Create Director %s %s?' %nameTupple, style=wx.YES_NO)
-        if dialog.ShowModal() == wx.ID_YES:
-            dialog.Destroy()
-            dm = dbm()
-            sql = 'INSERT INTO director\
-            (first_name, last_name)\
-            VALUES\
-            (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+
+        dm = dbm()
+        sql = 'INSERT INTO director\
+        (first_name, last_name)\
+        VALUES\
+        (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+        results = dm.execute(sql)
+        dm.commit()
+        if results is not False:
+            sql = 'SELECT id FROM director\
+            WHERE first_name = %s\
+            AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
             results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM director\
-                WHERE first_name = %s\
-                AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-                results = dm.execute(sql)
-                return results[0][0]
-        else:
-            dialog.Destroy()
+            return results[0][0]
         return False
 
 
@@ -201,6 +201,23 @@ class DataAccess(object):
         return actors
 
 
+    def createActor(self, nameTupple):
+        dm = dbm()
+        sql = 'INSERT INTO actor\
+        (first_name, last_name)\
+        VALUES\
+        (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+        results = dm.execute(sql)
+        dm.commit()
+        if results is not False:
+            sql = 'SELECT id FROM actor\
+            WHERE first_name = %s\
+            AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+            results = dm.execute(sql)
+            return results[0][0]
+        return False
+
+
     def getCountries(self):
         dm = dbm()
         sql = '''
@@ -215,24 +232,19 @@ class DataAccess(object):
         return countries
 
     def createCountry(self, country):
-        dialog = wx.MessageDialog(self, 'Create Country %s?' %country, style=wx.YES_NO)
-        if dialog.ShowModal() == wx.ID_YES:
-            dialog.Destroy()
-            dm = dbm()
-            sql = 'INSERT INTO country\
-            (name)\
-            VALUES\
-            (%s)'%("'" + country + "'")
+        dm = dbm()
+        sql = 'INSERT INTO country\
+        (name)\
+        VALUES\
+        (%s)'%("'" + country + "'")
+        results = dm.execute(sql)
+        dm.commit()
+        if results is not False:
+            sql = 'SELECT id FROM country\
+            WHERE name = %s\
+            '%("'" + country + "'")
             results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM country\
-                WHERE name = %s\
-                '%("'" + country + "'")
-                results = dm.execute(sql)
-                return results[0][0]
-        else:
-            dialog.Destroy()
+            return results[0][0]
         return False
 
 
@@ -252,24 +264,89 @@ class DataAccess(object):
 
 
     def createArtist(self, artist):
-        dialog = wx.MessageDialog(self, 'Create Artist %s?' %artist, style=wx.YES_NO)
-        if dialog.ShowModal() == wx.ID_YES:
-            dialog.Destroy()
-            dm = dbm()
-            sql = 'INSERT INTO artist\
-            (name)\
-            VALUES\
-            (%s)'%("'" + artist + "'")
+        dm = dbm()
+        sql = 'INSERT INTO artist\
+        (name)\
+        VALUES\
+        (%s)'%("'" + artist + "'")
+        results = dm.execute(sql)
+        dm.commit()
+        if results is not False:
+            sql = 'SELECT id FROM artist\
+            WHERE name = %s\
+            '%("'" + artist + "'")
             results = dm.execute(sql)
-            dm.commit()
-            if results is not False:
-                sql = 'SELECT id FROM artist\
-                WHERE name = %s\
-                '%("'" + artist + "'")
-                results = dm.execute(sql)
-                return results[0][0]
-        else:
-            dialog.Destroy()
+            return results[0][0]
         return False
 
+
+    def checkDirector(self, nameTupple):
+        if nameTupple in self.directors:
+            return True
+        else:
+            return False
+
+    def checkActor(self, nameTupple):
+        if nameTupple in self.actors:
+            return True
+        else:
+            return False
+
+    def checkCountry(self, country):
+        if country not in self.countries:
+            return False
+        return True
+
+    def checkArtist(self, artist):
+        if artist not in self.artists:
+            return False
+        return True
+
+
+    def relateActor(self, filmId, actorId, isFilm):
+        dm = dbm()
+        if isFilm:
+            sql = 'INSERT INTO film_actor\
+            (film, actor)\
+            VALUES\
+            (%s, %s)'%(filmId, actorId)
+        else:
+            sql = 'INSERT INTO series_actor\
+            (series, actor)\
+            VALUES\
+            (%s, %s)'%(filmId, actorId)
+
+        results = dm.execute(sql)
+        dm.commit()
+
+
+    def relateCountry(self, filmId, countryId, isFilm):
+        dm = dbm()
+        if isFilm:
+            sql = 'INSERT INTO film_country\
+            (film, country)\
+            VALUES\
+            (%s, %s)'%(filmId, countryId)
+        else:
+            sql = 'INSERT INTO series_country\
+            (series, country)\
+            VALUES\
+            (%s, %s)'%(filmId, countryId)
+        results = dm.execute(sql)
+        dm.commit()
+
+    def relateArtistMusic(self, artisdId, diskId, isDVD):
+        dm = dbm()
+        if isDVD:
+            sql = 'INSERT INTO artist_dvd\
+            (artist, dvdid)\
+            VALUES\
+            (%s, %s)'%(artisdId, diskId)
+        else:
+            sql = 'INSERT INTO series_cd\
+            (artist, cdid)\
+            VALUES\
+            (%s, %s)'%(artisdId, diskId)
+        results = dm.execute(sql)
+        dm.commit()
 

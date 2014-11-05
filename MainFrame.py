@@ -3,6 +3,8 @@ import wx
 import InterfacePanels as ip
 import constants as const
 
+from dataAccess import DataAccess
+
 class MainFrame(wx.Frame):
 
     def __init__(self):
@@ -11,6 +13,7 @@ class MainFrame(wx.Frame):
         self.SetBackgroundColour(const.BACKGROUNDCOLOUR)
 
         self.mainSizer = wx.BoxSizer(wx.VERTICAL)
+        self.dataAccess = DataAccess()
 
         panel = ip.RadioButtonPanel(self)
 

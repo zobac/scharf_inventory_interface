@@ -11,10 +11,10 @@ class DatabaseManager(object):
                                 passwd=const.PASSWORD, db=const.DATABASE)
         self.cursor = self.db.cursor()
 
-    def execute(self, sql):
+    def execute(self, sql, args):
 
         try:
-            self.cursor.execute(sql)
+            self.cursor.execute(sql, args)
             results = self.cursor.fetchall()
             return results
 

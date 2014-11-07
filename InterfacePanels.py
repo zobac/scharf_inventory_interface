@@ -217,7 +217,8 @@ class MusicDVDPanel(BasePanel):
                 panel.onCreate(musicDVDId, True)
         else:
             dialog.Destroy()
-        event.Skip()
+        self.returnToMainPanel()
+
 
 
     def onAddartist(self, event):
@@ -432,7 +433,7 @@ class FilmPanel(BasePanel):
                 panel.onCreate(filmId)
         else:
             dialog.Destroy()
-        event.Skip()
+        self.returnToMainPanel()
 
 
 class SeriesPanel(BasePanel):
@@ -560,7 +561,8 @@ class SeriesPanel(BasePanel):
                 panel.onCreate(seriesId, False)
         else:
             dialog.Destroy()
-        event.Skip()
+        self.returnToMainPanel()
+
 
 
 

@@ -37,7 +37,7 @@ class DataAccess(object):
         SELECT id, title
         FROM music_dvd
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         musicDVDs = {}
         for result in results:
             id, musicDVD = result
@@ -51,12 +51,12 @@ class DataAccess(object):
         (title, year, format)\
         VALUES\
         (%s, %s, %s)\
-        '%("'" + title + "'", year, format)
-        results = dm.execute(sql)
+        '#%("'" + title + "'", year, format)
+        results = dm.execute(sql, (title, year, format))
         dm.commit()
         if results is not False:
-            sql = 'SELECT id FROM music_dvd WHERE title = %s' %("'" + title + "'")
-            results = dm.execute(sql)
+            sql = 'SELECT id FROM music_dvd WHERE title = %s' #%("'" + title + "'")
+            results = dm.execute(sql, title)
         return results
 
 
@@ -67,7 +67,7 @@ class DataAccess(object):
         SELECT id, genre
         FROM genre
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         genres = {}
         for result in results:
             id, genre = result
@@ -82,7 +82,7 @@ class DataAccess(object):
         SELECT id, name
         FROM format
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         formats = {}
         for result in results:
             id, format = result
@@ -96,7 +96,7 @@ class DataAccess(object):
         SELECT title
         FROM films
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         films = []
         if results:
             for result in results:
@@ -111,12 +111,12 @@ class DataAccess(object):
         (title, year, genre, length, criterion_edition, director, format)\
         VALUES\
         (%s, %s, %s, %s, %s, %s, %s)\
-        '%("'" + title + "'", year, genre, length, isCriterion, directorID, format)
-        results = dm.execute(sql)
+        '#%("'" + title + "'", year, genre, length, isCriterion, directorID, format)
+        results = dm.execute(sql, (title, year, genre, length, isCriterion, directorID, format))
         dm.commit()
         if results is not False:
-            sql = 'SELECT id FROM films WHERE title = %s' %("'" + title + "'")
-            results = dm.execute(sql)
+            sql = 'SELECT id FROM films WHERE title = %s' #%("'" + title + "'")
+            results = dm.execute(sql, title)
         return results
 
 
@@ -127,7 +127,7 @@ class DataAccess(object):
         SELECT id, first_name, last_name
         FROM director
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         directors = {}
         if results:
             for result in results:
@@ -142,15 +142,15 @@ class DataAccess(object):
         sql = 'INSERT INTO director\
         (first_name, last_name)\
         VALUES\
-        (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-        results = dm.execute(sql)
+        (%s, %s)'#%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+        results = dm.execute(sql, (nameTupple[0], nameTupple[1]))
         dm.commit()
         if results is not False:
             sql = 'SELECT id FROM director\
             WHERE first_name = %s\
-            AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-            results = dm.execute(sql)
-            return results[0][0]
+            AND last_name = %s'#%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+            results = dm.execute(sql, (nameTupple[0], nameTupple[1]))
+            return results[-1][-1]
         return False
 
 
@@ -162,7 +162,7 @@ class DataAccess(object):
         SELECT name
         FROM series
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         series = []
         if results:
             for result in results:
@@ -177,12 +177,12 @@ class DataAccess(object):
         (name, year, genre, format)\
         VALUES\
         (%s, %s, %s, %s)\
-        '%("'" + name + "'", year, genre, format)
-        results = dm.execute(sql)
+        '#%("'" + name + "'", year, genre, format)
+        results = dm.execute(sql, (name, year, genre, format))
         dm.commit()
         if results is not False:
-            sql = 'SELECT id FROM series WHERE name = %s' %("'" + name + "'")
-            results = dm.execute(sql)
+            sql = 'SELECT id FROM series WHERE name = %s' #%("'" + name + "'")
+            results = dm.execute(sql, name)
         return results
 
 
@@ -192,7 +192,7 @@ class DataAccess(object):
         SELECT id, first_name, last_name
         FROM actor
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         actors = {}
         if results:
             for result in results:
@@ -206,14 +206,14 @@ class DataAccess(object):
         sql = 'INSERT INTO actor\
         (first_name, last_name)\
         VALUES\
-        (%s, %s)'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-        results = dm.execute(sql)
+        (%s, %s)'#%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+        results = dm.execute(sql, (nameTupple[0], nameTupple[1]))
         dm.commit()
         if results is not False:
             sql = 'SELECT id FROM actor\
             WHERE first_name = %s\
-            AND last_name = %s'%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
-            results = dm.execute(sql)
+            AND last_name = %s'#%("'" + nameTupple[0] + "'", "'" + nameTupple[1] + "'")
+            results = dm.execute(sql, (nameTupple[0], nameTupple[1]))
             return results[0][0]
         return False
 
@@ -224,7 +224,7 @@ class DataAccess(object):
         SELECT id, name
         FROM country
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         countries = {}
         for result in results:
             id, name = result
@@ -236,14 +236,14 @@ class DataAccess(object):
         sql = 'INSERT INTO country\
         (name)\
         VALUES\
-        (%s)'%("'" + country + "'")
-        results = dm.execute(sql)
+        (%s)'#%("'" + country + "'")
+        results = dm.execute(sql, country)
         dm.commit()
         if results is not False:
             sql = 'SELECT id FROM country\
             WHERE name = %s\
-            '%("'" + country + "'")
-            results = dm.execute(sql)
+            '#%("'" + country + "'")
+            results = dm.execute(sql, country)
             return results[0][0]
         return False
 
@@ -254,7 +254,7 @@ class DataAccess(object):
         SELECT id, name
         FROM artist
         '''
-        results = dm.execute(sql)
+        results = dm.execute(sql, ())
         artists = {}
         for result in results:
             id, name = result
@@ -268,14 +268,14 @@ class DataAccess(object):
         sql = 'INSERT INTO artist\
         (name)\
         VALUES\
-        (%s)'%("'" + artist + "'")
-        results = dm.execute(sql)
+        (%s)'#%("'" + artist + "'")
+        results = dm.execute(sql, artist)
         dm.commit()
         if results is not False:
             sql = 'SELECT id FROM artist\
             WHERE name = %s\
-            '%("'" + artist + "'")
-            results = dm.execute(sql)
+            '#%("'" + artist + "'")
+            results = dm.execute(sql, artist)
             return results[0][0]
         return False
 
@@ -309,14 +309,14 @@ class DataAccess(object):
             sql = 'INSERT INTO film_actor\
             (film, actor)\
             VALUES\
-            (%s, %s)'%(filmId, actorId)
+            (%s, %s)'#%(filmId, actorId)
         else:
             sql = 'INSERT INTO series_actor\
             (series, actor)\
             VALUES\
-            (%s, %s)'%(filmId, actorId)
+            (%s, %s)'#%(filmId, actorId)
 
-        results = dm.execute(sql)
+        results = dm.execute(sql, (filmId, actorId))
         dm.commit()
 
 
@@ -326,13 +326,13 @@ class DataAccess(object):
             sql = 'INSERT INTO film_country\
             (film, country)\
             VALUES\
-            (%s, %s)'%(filmId, countryId)
+            (%s, %s)'#%(filmId, countryId)
         else:
             sql = 'INSERT INTO series_country\
             (series, country)\
             VALUES\
-            (%s, %s)'%(filmId, countryId)
-        results = dm.execute(sql)
+            (%s, %s)'#%(filmId, countryId)
+        results = dm.execute(sql, (filmId, countryId))
         dm.commit()
 
     def relateArtistMusic(self, artisdId, diskId, isDVD):
@@ -341,12 +341,12 @@ class DataAccess(object):
             sql = 'INSERT INTO artist_dvd\
             (artist, dvdid)\
             VALUES\
-            (%s, %s)'%(artisdId, diskId)
+            (%s, %s)'#%(artisdId, diskId)
         else:
             sql = 'INSERT INTO series_cd\
             (artist, cdid)\
             VALUES\
-            (%s, %s)'%(artisdId, diskId)
-        results = dm.execute(sql)
+            (%s, %s)'#%(artisdId, diskId)
+        results = dm.execute(sql, (artisdId, diskId))
         dm.commit()
 

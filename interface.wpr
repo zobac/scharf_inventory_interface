@@ -4,9 +4,11 @@
 # Wing IDE project file                                          #
 ##################################################################
 [project attributes]
-proj.file-list = [loc('constants.py'),
+proj.file-list = [loc('build-interface.py'),
+                  loc('constants.py'),
                   loc('dataAccess.py'),
                   loc('databaseAccess.py'),
-                  loc('InterfacePanels.py')]
+                  loc('InterfacePanels.py'),
+                  loc('MainFrame.py')]
 proj.file-type = 'shared'
 proj.main-file = loc('MainFrame.py')

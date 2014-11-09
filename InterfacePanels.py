@@ -89,7 +89,7 @@ class BasePanel(wx.Panel):
 
     def onAddActor(self, event):
             self.Freeze()
-            panel = ActorPanel(self.actorPanel)
+            panel = ActorPanel(self.actorPanel, self.dataAccess)
             self.relatingPanels.append(panel)
             self.actorPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
             self.actorPanel.SetSizer(self.actorPanelSizer)
@@ -100,7 +100,7 @@ class BasePanel(wx.Panel):
 
     def onAddCountry(self, event):
         self.Freeze()
-        panel = CountryPanel(self.countryPanel)
+        panel = CountryPanel(self.countryPanel, self.dataAccess)
         self.relatingPanels.append(panel)
         self.countryPanelSizer.Add(panel, 0, wx.ALL|wx.EXPAND, 4)
         self.countryPanel.SetSizer(self.countryPanelSizer)

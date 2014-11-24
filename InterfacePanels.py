@@ -411,7 +411,7 @@ class FilmPanel(BasePanel):
                 dialog.Destroy()
                 return
         else:
-            directorID = self.directors[director]
+            directorID = self.dataAccess.directors[director]
 
 
         dialogString = "Create Film:%s\nDirector:%s\nLength:%s\nGenre:%s\nFormat:%s\nYear:%s\nCriterion:%s" %(title, director[0] + ' ' + director[1],

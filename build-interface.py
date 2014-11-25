@@ -9,7 +9,9 @@ os.environ['PATH'] = '%s;%s' % (currentDirectory,os.environ['PATH'])
 
 data_files = []
 data_files.append(('',['msvcp71.dll']))
-data_files.append(("",["lmcrypt.exe"]))
+data_files.append(('',['msvcr90.dll']))
+data_files.append(('',['msvcp90.dll']))
+data_files.append(('',['Microsoft.VC90.CRT.manifest']))
 
 PROGRAM_NAME = "Scharf Inventory Interface"
 PROGRAM_VERSION = "1.0"
@@ -57,6 +59,16 @@ manifest_template = '''
             publicKeyToken="6595b64144ccf1df"
             language="*"
         />
+    </dependentAssembly>
+</dependency>
+<dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+         type="win32"
+         name="Microsoft.VC90.CRT"
+         version="9.0.30729.1"
+         publicKeyToken="1fc8b3b9a1e18e3b"
+         processorArchitecture="x86" />
     </dependentAssembly>
 </dependency>
 </assembly>
